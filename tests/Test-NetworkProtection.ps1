@@ -47,7 +47,12 @@ try {
 } catch { $failure=$_.Exception.Message }
 finally {
     try {
-        if($receipt) { Remove-WesRoleProtection $receipt }
+        if($receipt) {
+            Remove-WesRoleProtection $receipt
+            # A power loss can leave a deployed receipt after the actual objects
+            # have been removed. Recovery must tolerate the same receipt again.
+            Remove-WesRoleProtection $receipt
+        }
         if($fixture -and (Test-Path -LiteralPath (Join-Path $rootPath 'fixture-curl.exe'))) {
             if((Invoke-FixtureCurl (Join-Path $rootPath 'fixture-curl.exe') $fixture.Port) -ne 0) { throw 'Fixture connection did not recover after rollback.' }
             if($DirectHttpsCheck -and (Invoke-FixtureCurl (Join-Path $rootPath 'fixture-curl.exe') 0 -DirectHttps) -ne 0) { throw 'Direct HTTPS did not recover after the fixture firewall rollback.' }

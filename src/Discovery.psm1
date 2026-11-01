@@ -33,7 +33,7 @@ function Get-WesDesktopApplication {
     else { $packageName='OpenAI.Codex';$mainFile='ChatGPT.exe';$aliasName='chatgpt-desktop.exe' }
     $package=Get-AppxPackage -Name $packageName -ErrorAction Stop | Select-Object -First 1
     if(-not $package) { throw "Application is not installed for this account: $Scope" }
-    [xml]$manifest=Get-Content -LiteralPath (Join-Path $package.InstallLocation 'AppxManifest.xml')
+    [xml]$manifest=Get-Content -LiteralPath (Join-Path $package.InstallLocation 'AppxManifest.xml') -Encoding UTF8
     $mains=@($manifest.SelectNodes("//*[local-name()='Applications']/*[local-name()='Application']") | Where-Object {
         $_.HasAttribute('Executable') -and [IO.Path]::GetFileName($_.GetAttribute('Executable').Replace('/','\')) -ieq $mainFile
     })

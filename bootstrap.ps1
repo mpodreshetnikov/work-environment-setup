@@ -15,7 +15,8 @@ try {
     foreach($sid in @($ownerSid,'S-1-5-18','S-1-5-32-544')) {
         $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new($sid),'FullControl','ContainerInherit,ObjectInherit','None','Allow'))
     }
-    [IO.Directory]::SetAccessControl($temporary,$acl)
+    if($PSVersionTable.PSEdition -eq 'Core') { [IO.FileSystemAclExtensions]::SetAccessControl([IO.DirectoryInfo]::new($temporary),$acl) }
+    else { [IO.Directory]::SetAccessControl($temporary,$acl) }
     [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
     if(-not $Commit) {
         $metadata=Invoke-RestMethod 'https://api.github.com/repos/mpodreshetnikov/work-environment-setup/commits/main' -Headers @{Accept='application/vnd.github+json';'User-Agent'='work-environment-setup'}

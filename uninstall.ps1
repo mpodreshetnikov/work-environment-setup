@@ -2,6 +2,7 @@
 #Requires -RunAsAdministrator
 param([string]$Root=(Join-Path $env:LOCALAPPDATA 'WorkEnvironmentSetup\AiVpn'),[switch]$PurgePrivateState)
 $ErrorActionPreference='Stop'
+if($PSVersionTable.PSEdition -ne 'Desktop' -or -not [Environment]::Is64BitProcess) { throw 'Use elevated 64-bit Windows PowerShell 5.1 for removal.' }
 $modules=if(Test-Path (Join-Path $PSScriptRoot 'src')) { Join-Path $PSScriptRoot 'src' } else { Join-Path $Root 'runtime' }
 foreach($module in @('PrivateState','Maintenance')) { Import-Module (Join-Path $modules ($module+'.psm1')) -Force }
 $full=Initialize-WesPrivateDirectory -Path $Root

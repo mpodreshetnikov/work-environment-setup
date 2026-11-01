@@ -1,6 +1,7 @@
 #Requires -Version 5.1
 param([string]$Root=(Join-Path $env:LOCALAPPDATA 'WorkEnvironmentSetup\AiVpn'))
 $ErrorActionPreference='Stop'
+if($PSVersionTable.PSEdition -ne 'Desktop' -or -not [Environment]::Is64BitProcess) { throw 'Use 64-bit Windows PowerShell 5.1 for verification.' }
 $modules=if(Test-Path (Join-Path $PSScriptRoot 'src')) { Join-Path $PSScriptRoot 'src' } else { Join-Path $Root 'runtime' }
 foreach($module in @('PrivateState','Runtime','NetworkProtection','Discovery','LaunchPlan')) { Import-Module (Join-Path $modules ($module+'.psm1')) -Force }
 $state=Read-WesInstallationState $Root

@@ -79,7 +79,8 @@ function Read-WesPrivateJson {
     [CmdletBinding()]
     param([Parameter(Mandatory=$true)][string]$Path)
     if(-not (Test-WesPrivateDirectory (Split-Path ([IO.Path]::GetFullPath($Path)))) -or -not (Test-WesPrivateFile $Path)) { throw 'Private JSON file has unsafe permissions or is missing.' }
-    return (Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json)
+    try { return (Get-Content -LiteralPath $Path -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop) }
+    catch { throw 'Private JSON could not be read or parsed. Its contents were suppressed.' }
 }
 
 function Write-WesPrivateJson {
@@ -93,7 +94,7 @@ function Write-WesPrivateJson {
     }
     $temporary=Join-Path $parent ('.wes-write-'+[guid]::NewGuid().ToString()+'.tmp')
     try {
-        [IO.File]::WriteAllText($temporary,($Value | ConvertTo-Json -Depth 80),[Text.UTF8Encoding]::new($false))
+        [IO.File]::WriteAllText($temporary,(ConvertTo-Json -InputObject $Value -Depth 80),[Text.UTF8Encoding]::new($false))
         if([IO.File]::Exists($full)) { [IO.File]::Replace($temporary,$full,[NullString]::Value) }
         else { [IO.File]::Move($temporary,$full) }
     } finally { if([IO.File]::Exists($temporary)) { [IO.File]::Delete($temporary) } }

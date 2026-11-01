@@ -1,5 +1,11 @@
 Set-StrictMode -Version 2
 
+function Read-WesSourceJson {
+    param([Parameter(Mandatory=$true)][string]$Path)
+    try { return (Get-Content -LiteralPath $Path -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop) }
+    catch { throw 'The v2rayN JSON file could not be read or parsed. Its private contents were suppressed.' }
+}
+
 function Resolve-WesV2rayRoot {
     [CmdletBinding()]
     param([string]$Path)
@@ -79,7 +85,7 @@ function Get-WesVpnSnapshot {
     [CmdletBinding()]
     param([string]$V2rayRoot, [string]$CoreConfigPath, [string]$SqliteLibraryPath)
     $root = Resolve-WesV2rayRoot -Path $V2rayRoot
-    $saved = Get-Content -LiteralPath (Join-Path $root 'guiConfigs\guiNConfig.json') -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json
+    $saved = Read-WesSourceJson (Join-Path $root 'guiConfigs\guiNConfig.json')
     $id = [string]$saved.IndexId
     if (-not $id) { throw 'No active profile is saved in v2rayN.' }
     if (-not ('WorkEnvironmentSetup.SqliteProfileReader' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'native\SqliteProfileReader.cs') }
@@ -90,7 +96,7 @@ function Get-WesVpnSnapshot {
     $generated = $CoreConfigPath
     if (-not $generated) { $generated = Join-Path $root 'binConfigs\config.json' }
     if (Test-Path -LiteralPath $generated) {
-        $core = Get-Content -LiteralPath $generated -Raw -Encoding UTF8 | ConvertFrom-Json
+        $core = Read-WesSourceJson $generated
         $outbounds = @($core.outbounds | Where-Object tag -eq 'proxy')
         if ($outbounds.Count -ne 1) { throw 'The core configuration must contain exactly one proxy outbound.' }
         $outbound = $outbounds[0]

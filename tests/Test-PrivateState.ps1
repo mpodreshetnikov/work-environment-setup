@@ -29,6 +29,10 @@ try {
     $restoredAcl=[Security.AccessControl.FileSecurity]::new()
     $restoredAcl.SetSecurityDescriptorSddlForm($originalAcl.GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::Access),[Security.AccessControl.AccessControlSections]::Access)
     [IO.File]::SetAccessControl($statePath,$restoredAcl)
+    [IO.File]::WriteAllText($statePath,'{"private": fixture-sensitive-value}',[Text.UTF8Encoding]::new($false))
+    $rejected=$false
+    try { $null=Read-WesInstallationState $root } catch { $rejected=$true;if($_.Exception.Message.Contains('fixture-sensitive-value')) { throw 'Private JSON content leaked in a parsing error.' } }
+    if(-not $rejected) { throw 'Malformed private JSON was accepted.' }
     Write-WesPrivateJson -Path $statePath -Value @{SchemaVersion=1;OwnerSid='S-1-5-18'}
     $rejected=$false;try { $null=Read-WesInstallationState $root } catch { $rejected=$true }
     if(-not $rejected) { throw 'Another user state was accepted.' }
@@ -36,7 +40,7 @@ try {
     $extra=[Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new('S-1-5-32-545'),'ReadAndExecute','ContainerInherit,ObjectInherit','None','Allow')
     $acl.AddAccessRule($extra);[IO.Directory]::SetAccessControl($root,$acl)
     if(Test-WesPrivateDirectory $root) { throw 'A directory readable by other local users was accepted.' }
-    Write-Output 'PASS: private directory/file ACLs, per-user identity, Unicode JSON, atomic replacement, foreign owner rejection, broad file access rejection.'
+    Write-Output 'PASS: private ACLs, per-user identity, Unicode JSON, atomic replacement, foreign owner rejection, broad file access rejection and redacted JSON errors.'
 } finally {
     foreach($file in @('installation.private.json','.wes-owner.json')) { Remove-Item -LiteralPath (Join-Path $path $file) -ErrorAction SilentlyContinue }
     Remove-Item -LiteralPath $path -ErrorAction SilentlyContinue

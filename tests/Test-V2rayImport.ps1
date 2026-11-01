@@ -36,6 +36,10 @@ try {
     $broken | ConvertTo-Json -Depth 50 | Set-Content $corePath -Encoding UTF8
     $rejected=$false; try { $null=Get-WesVpnSnapshot -V2rayRoot $dir -SqliteLibraryPath $SqliteDllPath -CoreConfigPath $corePath } catch { $rejected=$true }
     if(-not $rejected) { throw 'A transport security downgrade was silently accepted.' }
+    [IO.File]::WriteAllText($corePath,'{"outbounds": fixture-sensitive-value}',[Text.UTF8Encoding]::new($false))
+    $rejected=$false
+    try { $null=Get-WesVpnSnapshot -V2rayRoot $dir -SqliteLibraryPath $SqliteDllPath -CoreConfigPath $corePath } catch { $rejected=$true;if($_.Exception.Message.Contains('fixture-sensitive-value')) { throw 'Exported VPN contents leaked through a parsing error.' } }
+    if(-not $rejected) { throw 'Malformed exported JSON was accepted.' }
     $profile['Network']='ws'
     $rejected=$false
     try { $null=ConvertTo-WesVlessOutbound -Profile $profile } catch { $rejected=$true }

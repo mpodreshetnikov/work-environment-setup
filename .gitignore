@@ -1,0 +1,17 @@
+# Machine-specific VPN state, credentials and diagnostic output.
+.local/
+.secrets/
+state/
+logs/
+backups/
+*.log
+*.cip
+*-result.json
+*.private.json
+*.sqlite
+*.sqlite3
+*.db
+*.pem
+*.key
+*.pfx
+*.p12

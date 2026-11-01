@@ -1,0 +1,14 @@
+name: Windows source tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Windows PowerShell 5.1 modules and native CLI bridge
+        shell: powershell
+        run: .\tests\Run-Tests.ps1

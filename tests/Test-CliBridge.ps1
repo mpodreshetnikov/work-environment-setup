@@ -60,6 +60,19 @@ $stream=[Console]::OpenStandardOutput();$stream.Write($bytes,0,$bytes.Length);$s
         if($process.ExitCode -ne 17 -or $actual.Input -cne $text) { throw 'CLI stdin bytes were not preserved.' }
     } finally { $process.Dispose() }
     $start.RedirectStandardInput=$false
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\src\runtime\Shell.ps1') -Destination (Join-Path $runtime 'Shell.ps1')
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\src\PrivateState.psm1') -Destination (Join-Path $runtime 'PrivateState.psm1')
+    Write-WesPrivateJson (Join-Path $root 'installation.private.json') @{SchemaVersion=1;OwnerSid=(Get-WesOwnerSid);Applications=@(@{Scope='CodexCli'})}
+    . (Join-Path $runtime 'Shell.ps1')
+    $shellEncoded=codex @fixture
+    $actual=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($shellEncoded.Trim())) | ConvertFrom-Json
+    $expected=@('--fixture-prefix')+$fixture
+    if($LASTEXITCODE -ne 17 -or @($actual.Arguments).Count -ne $expected.Count) { throw 'PowerShell wrapper lost native arguments or exit code.' }
+    for($i=0;$i -lt $expected.Count;$i++) { if($actual.Arguments[$i] -cne $expected[$i]) { throw 'PowerShell wrapper changed a native argument.' } }
+    $shellEncoded=('pipeline '+$unicode) | codex --fixture-stdin
+    $actual=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($shellEncoded.Trim())) | ConvertFrom-Json
+    if($actual.Input -cne ('pipeline '+$unicode+[Environment]::NewLine) -or $LASTEXITCODE -ne 17) { throw 'PowerShell wrapper lost Unicode pipeline input.' }
+    if(Get-Command claude -CommandType Function -ErrorAction SilentlyContinue) { throw 'Wrapper was installed for an unselected application.' }
     foreach($invalidArguments in @(@{Value=[string]::new([char]'x',40000);Error='too long'},@{Value=('a'+[char]0+'b');Error='NUL'})) {
         $argumentId=[guid]::NewGuid().ToString('N')
         Write-WesPrivateJson -Path (Join-Path $root ('.cli-args-'+$argumentId+'.private.json')) -Value @{SchemaVersion=1;OwnerSid=(Get-WesOwnerSid);Arguments=@($invalidArguments.Value)}
@@ -91,10 +104,10 @@ $stream=[Console]::OpenStandardOutput();$stream.Write($bytes,0,$bytes.Length);$s
         if($process.ExitCode -ne 1 -or $output.Trim() -or $errors.Contains('fixture-sensitive-value')) { throw 'Malformed launch metadata was exposed or allowed execution.' }
     } finally { $process.Dispose() }
     if([Environment]::GetEnvironmentVariable('HTTPS_PROXY','Process') -cne $savedProxy) { throw 'The parent proxy environment changed.' }
-    Write-Output 'PASS: native argv, private arguments, empty/quoted/long Unicode values, stdin/stdout, exit code, child proxy environment, failed-check rejection and redacted metadata errors.'
+    Write-Output 'PASS: native argv, private arguments, PowerShell wrappers/pipeline, empty/quoted/long Unicode values, stdin/stdout, exit code, child proxy environment, failed-check rejection and redacted metadata errors.'
 } finally {
     if(Test-Path -LiteralPath $path) { Get-ChildItem -LiteralPath $path -Filter '.cli-args-*.private.json' -Force | ForEach-Object { Remove-Item -LiteralPath $_.FullName -ErrorAction SilentlyContinue } }
-    foreach($file in @('bin\CliBridge.exe','bin\echo.exe','runtime\Check.ps1','.wes-owner.json')) { Remove-Item -LiteralPath (Join-Path $path $file) -ErrorAction SilentlyContinue }
+    foreach($file in @('bin\CliBridge.exe','bin\echo.exe','runtime\Check.ps1','runtime\Shell.ps1','runtime\PrivateState.psm1','installation.private.json','.wes-owner.json')) { Remove-Item -LiteralPath (Join-Path $path $file) -ErrorAction SilentlyContinue }
     foreach($dir in @('bin','runtime')) { Remove-Item -LiteralPath (Join-Path $path $dir) -ErrorAction SilentlyContinue }
     Remove-Item -LiteralPath $path -ErrorAction SilentlyContinue
 }

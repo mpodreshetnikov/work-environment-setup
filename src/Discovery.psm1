@@ -31,8 +31,9 @@ function Get-WesDesktopApplication {
     param([Parameter(Mandatory=$true)][ValidateSet('ClaudeDesktop','CodexDesktop')][string]$Scope)
     if($Scope -eq 'ClaudeDesktop') { $packageName='Claude';$mainFile='Claude.exe';$aliasName='claude-desktop.exe' }
     else { $packageName='OpenAI.Codex';$mainFile='ChatGPT.exe';$aliasName='chatgpt-desktop.exe' }
-    $package=Get-AppxPackage -Name $packageName -ErrorAction Stop | Select-Object -First 1
-    if(-not $package) { throw "Application is not installed for this account: $Scope" }
+    $packages=@(Get-AppxPackage -Name $packageName -ErrorAction Stop)
+    if($packages.Count -ne 1) { throw "Application package is missing or ambiguous for this account: $Scope" }
+    $package=$packages[0]
     [xml]$manifest=Get-Content -LiteralPath (Join-Path $package.InstallLocation 'AppxManifest.xml') -Encoding UTF8
     $mains=@($manifest.SelectNodes("//*[local-name()='Applications']/*[local-name()='Application']") | Where-Object {
         $_.HasAttribute('Executable') -and [IO.Path]::GetFileName($_.GetAttribute('Executable').Replace('/','\')) -ieq $mainFile
@@ -43,7 +44,7 @@ function Get-WesDesktopApplication {
     $alias=Join-Path (Join-Path (Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps') $package.PackageFamilyName) $aliasName
     if(-not (Test-Path -LiteralPath $alias)) { throw "The desktop launch alias needs installation repair: $Scope" }
     $files=@(Get-ChildItem -LiteralPath $package.InstallLocation -File -Filter '*.exe' -Recurse -ErrorAction Stop | Select-Object -ExpandProperty FullName)
-    $pattern=Join-Path (Split-Path $package.InstallLocation) ($package.Name+'_*\*')
+    $pattern=Join-Path (Split-Path $package.InstallLocation) ($package.Name+'_*_'+$package.PublisherId+'\*')
     $patterns=@($pattern)
     if($Scope -eq 'CodexDesktop') {
         $privateRoot=Join-Path $env:LOCALAPPDATA 'OpenAI\Codex'
@@ -52,7 +53,7 @@ function Get-WesDesktopApplication {
             if(Test-Path -LiteralPath $directoryPath) {
                 $files+=@(Get-ChildItem -LiteralPath $directoryPath -File -Filter '*.exe' -Recurse | Where-Object { $_.Name -like 'codex*.exe' -or $_.Name -in @('node.exe','node_repl.exe') } | Select-Object -ExpandProperty FullName)
             }
-            foreach($name in @('codex*.exe','node.exe','node_repl.exe')) { $patterns+=Join-Path $directoryPath ('*\'+$name) }
+            foreach($name in @('codex*.exe','node.exe','node_repl.exe')) { $patterns+=Join-Path $directoryPath $name; $patterns+=Join-Path $directoryPath ('*\'+$name) }
         }
         $cache=Join-Path $env:USERPROFILE '.cache\codex-runtimes\codex-primary-runtime'
         # Do not tag the cache wholesale: it also contains external command tools.
@@ -82,7 +83,8 @@ function Get-WesClaudeCode {
         $versions=Join-Path $env:USERPROFILE '.local\share\claude\versions'
         if($path.StartsWith($versions+'\',[StringComparison]::OrdinalIgnoreCase)) { $pattern=Join-Path $versions '*' }
     }
-    return [pscustomobject]@{Scope='ClaudeCode';Kind='NativeCli';CommandName='claude';LaunchExecutable=$command.Source;NativeExecutable=$path;Executables=@($path);TagPatterns=@($pattern)}
+    if([Diagnostics.FileVersionInfo]::GetVersionInfo($path).ProductName -notlike '*Claude Code*') { throw 'The claude.exe command is not the native Claude Code distribution.' }
+    return [pscustomobject]@{Scope='ClaudeCode';Kind='NativeCli';CommandName='claude';LaunchExecutable=$path;NativeExecutable=$path;Executables=@($path);TagPatterns=@($pattern)}
 }
 
 function Get-WesCodexCli {
@@ -127,7 +129,7 @@ function Get-WesCodexCli {
             $engineFiles=@($native)
             foreach($engineRoot in $engineRoots) { $engineFiles+=@(Get-ChildItem -LiteralPath $engineRoot -Filter 'codex*.exe' -File -Recurse | Select-Object -ExpandProperty FullName) }
             if((Get-WesExecutableArchitecture $native[0]) -ne $architecture) { throw 'The native Codex package does not match the installed Node.js architecture.' }
-            return [pscustomobject]@{Scope='CodexCli';Kind='NativeViaNode';CommandName='codex';ShimPath=$shim.Source;LaunchExecutable=$node;EntryScript=$entry;NativeExecutable=$native[0];Executables=@($engineFiles | Sort-Object -Unique);TagPatterns=@($patterns | Sort-Object -Unique)}
+            return [pscustomobject]@{Scope='CodexCli';Kind='NativeViaNode';CommandName='codex';ShimPath=$shim.Source;LaunchExecutable=(Resolve-WesCanonicalPath $node);EntryScript=(Resolve-WesCanonicalPath $entry);NativeExecutable=$native[0];Executables=@($engineFiles | Sort-Object -Unique);TagPatterns=@($patterns | Sort-Object -Unique)}
         }
     }
     $command=Get-Command 'codex.exe' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -136,7 +138,7 @@ function Get-WesCodexCli {
     $patterns=@($path)
     $desktopRoot=Join-Path $env:LOCALAPPDATA 'OpenAI\Codex'
     if($path.StartsWith($desktopRoot+'\',[StringComparison]::OrdinalIgnoreCase)) { $patterns=@((Join-Path $desktopRoot '*')) }
-    return [pscustomobject]@{Scope='CodexCli';Kind='NativeCli';CommandName='codex';LaunchExecutable=$command.Source;NativeExecutable=$path;Executables=@($path);TagPatterns=$patterns}
+    return [pscustomobject]@{Scope='CodexCli';Kind='NativeCli';CommandName='codex';LaunchExecutable=$path;NativeExecutable=$path;Executables=@($path);TagPatterns=$patterns}
 }
 
 function Get-WesApplicationInventory {

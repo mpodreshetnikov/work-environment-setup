@@ -16,7 +16,8 @@ $inventory=@(Get-WesApplicationInventory -Scopes $Apps)
 $view=[ordered]@{
     Mode='ReadOnlyPlan'
     SystemSettingsChanged=$false
-    DeploymentImplemented=$false
+    DeploymentImplemented=$true
+    ReleaseStatus='Local validation in progress; clean installation and bootstrap are not yet verified'
     Applications=@($inventory | ForEach-Object { [ordered]@{Scope=$_.Scope;Kind=$_.Kind;ExecutableCount=@($_.Executables).Count;TagPatterns=@($_.TagPatterns)} })
     Vpn=[ordered]@{Root=$snapshot.V2rayRoot;Source=$snapshot.Source;Protocol=$snapshot.Outbound.protocol;TunEnabled=$snapshot.TunEnabled;XrayFound=(Test-Path -LiteralPath $snapshot.XrayPath)}
     ApplicationAutostart=$false

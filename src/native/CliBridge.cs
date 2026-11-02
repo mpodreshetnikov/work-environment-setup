@@ -81,6 +81,7 @@ namespace WorkEnvironmentSetup {
             start.RedirectStandardOutput=Console.IsOutputRedirected;start.RedirectStandardError=Console.IsErrorRedirected;start.RedirectStandardInput=Console.IsInputRedirected;
             start.EnvironmentVariables["HTTP_PROXY"]=plan.ProxyUrl;start.EnvironmentVariables["HTTPS_PROXY"]=plan.ProxyUrl;start.EnvironmentVariables["ALL_PROXY"]=plan.ProxyUrl;
             start.EnvironmentVariables["NO_PROXY"]="localhost,127.0.0.1,::1";
+            if(plan.Scope=="CodexCli") start.EnvironmentVariables["NODE_USE_ENV_PROXY"]="1";
             ConsoleCancelEventHandler cancel=delegate(object sender,ConsoleCancelEventArgs e) { e.Cancel=true; };
             if (console) Console.CancelKeyPress+=cancel;
             try {

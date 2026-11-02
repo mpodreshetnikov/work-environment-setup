@@ -26,6 +26,7 @@ try {
     if($plan.DisableGpu) { $launch.Arguments+=' --disable-gpu' }
     foreach($name in @('HTTP_PROXY','HTTPS_PROXY','ALL_PROXY')) { $launch.EnvironmentVariables[$name]=$plan.ProxyUrl }
     $launch.EnvironmentVariables['NO_PROXY']='localhost,127.0.0.1,::1'
+    if($Scope -eq 'CodexDesktop') { $launch.EnvironmentVariables['NODE_USE_ENV_PROXY']='1' }
     $child=[Diagnostics.Process]::Start($launch);if($child) { $child.Dispose() }
 } catch {
     Add-Type -AssemblyName System.Windows.Forms

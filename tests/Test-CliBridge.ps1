@@ -2,6 +2,7 @@ $ErrorActionPreference='Stop'
 Import-Module (Join-Path $PSScriptRoot '..\src\PrivateState.psm1') -Force
 $path=Join-Path ([IO.Path]::GetTempPath()) ('wes-bridge-'+[guid]::NewGuid().ToString())
 $savedProxy=[Environment]::GetEnvironmentVariable('HTTPS_PROXY','Process')
+$savedNodeProxy=[Environment]::GetEnvironmentVariable('NODE_USE_ENV_PROXY','Process')
 try {
     $root=Initialize-WesPrivateDirectory -Path $path
     $bin=Join-Path $root 'bin';$runtime=Join-Path $root 'runtime'
@@ -45,6 +46,7 @@ $stream=[Console]::OpenStandardOutput();$stream.Write($bytes,0,$bytes.Length);$s
             if(@($actual.Arguments).Count -ne $expected.Count) { throw ('CLI argument count changed in '+$mode+': expected '+$expected.Count+', got '+@($actual.Arguments).Count) }
             for($i=0;$i -lt $expected.Count;$i++) { if($actual.Arguments[$i] -cne $expected[$i]) { throw ('CLI argument changed at index '+$i) } }
             if($actual.Proxy -ne 'http://127.0.0.1:20080') { throw 'Child process proxy environment was not scoped correctly.' }
+            if($actual.NodeUseEnvProxy -ne '1') { throw 'Codex Node.js proxy handling was not enabled in the child process.' }
         } finally { $process.Dispose() }
     }
     $start.Arguments=[WorkEnvironmentSetup.CliBridge]::JoinArguments(@('CodexCli','--fixture-stdin'))
@@ -104,6 +106,7 @@ $stream=[Console]::OpenStandardOutput();$stream.Write($bytes,0,$bytes.Length);$s
         if($process.ExitCode -ne 1 -or $output.Trim() -or $errors.Contains('fixture-sensitive-value')) { throw 'Malformed launch metadata was exposed or allowed execution.' }
     } finally { $process.Dispose() }
     if([Environment]::GetEnvironmentVariable('HTTPS_PROXY','Process') -cne $savedProxy) { throw 'The parent proxy environment changed.' }
+    if([Environment]::GetEnvironmentVariable('NODE_USE_ENV_PROXY','Process') -cne $savedNodeProxy) { throw 'The parent Node.js proxy environment changed.' }
     Write-Output 'PASS: native argv, private arguments, PowerShell wrappers/pipeline, empty/quoted/long Unicode values, stdin/stdout, exit code, child proxy environment, failed-check rejection and redacted metadata errors.'
 } finally {
     if(Test-Path -LiteralPath $path) { Get-ChildItem -LiteralPath $path -Filter '.cli-args-*.private.json' -Force | ForEach-Object { Remove-Item -LiteralPath $_.FullName -ErrorAction SilentlyContinue } }

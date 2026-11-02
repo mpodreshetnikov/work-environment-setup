@@ -3,7 +3,7 @@ param([switch]$Live,[string]$V2rayRoot,[string]$TunInterfaceAlias,[switch]$Netwo
 $ErrorActionPreference='Stop'
 if($PSVersionTable.PSEdition -ne 'Desktop' -or -not [Environment]::Is64BitProcess) { throw 'Use 64-bit Windows PowerShell 5.1.' }
 $powershell=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-$offline=@('Test-SourceSafety.ps1','Test-CanonicalPath.ps1','Test-ExecutableArchitecture.ps1','Test-PrivateState.ps1','Test-CliBridge.ps1')
+$offline=@('Test-SourceSafety.ps1','Test-CanonicalPath.ps1','Test-ExecutableArchitecture.ps1','Test-PrivateState.ps1','Test-StartupControls.ps1','Test-CliBridge.ps1')
 foreach($test in $offline) {
     & $powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot $test)
     if($LASTEXITCODE -ne 0) { throw ('Test failed: '+$test) }

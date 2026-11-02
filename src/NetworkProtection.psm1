@@ -33,7 +33,22 @@ function Remove-WesRoleProtection {
     }
     if($Receipt.PolicyDeployed) {
         & (Join-Path $env:SystemRoot 'System32\CiTool.exe') --remove-policy $Receipt.PolicyId --json | Out-Null
-        if($LASTEXITCODE) { throw 'Could not remove the owned AppID tagging policy. Keep the installation state and retry removal as administrator.' }
+        if($LASTEXITCODE) {
+            # CiTool reports an error when recovery repeats an already completed
+            # removal. Accept that case only after a successful authoritative
+            # enumeration proves that the exact policy is absent.
+            $output=@(& (Join-Path $env:SystemRoot 'System32\CiTool.exe') --list-policies --json)
+            if($LASTEXITCODE) { throw 'Could not verify AppID policy removal. Keep the installation state and retry removal as administrator.' }
+            $listed=($output -join "`n") | ConvertFrom-Json
+            if(-not $listed.PSObject.Properties['Policies'] -or -not $listed.PSObject.Properties['OperationResult'] -or $listed.OperationResult -ne 0) { throw 'Could not verify AppID policy removal: unexpected CiTool result.' }
+            $policyId=[guid]$Receipt.PolicyId
+            foreach($policy in @($listed.Policies)) {
+                if(-not $policy.PSObject.Properties['PolicyID']) { throw 'Could not verify AppID policy removal: missing policy identity.' }
+                if([guid]$policy.PolicyID -eq $policyId) { throw 'Could not remove the owned AppID tagging policy. Keep the installation state and retry removal as administrator.' }
+            }
+            $active=Join-Path $env:SystemRoot ('System32\CodeIntegrity\CiPolicies\Active\'+$policyId.ToString('B')+'.cip')
+            if(Test-Path -LiteralPath $active) { throw 'The owned AppID policy file remains after removal. Keep the installation state.' }
+        }
     }
 }
 

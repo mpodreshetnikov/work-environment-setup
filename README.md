@@ -20,7 +20,7 @@ Cloudflare WARP на сервере допускается. Изменение �
 
 ## До установки
 
-1. Нужны Windows 11 22H2 или новее, Windows PowerShell 5.1 x64/ARM64, работающий Windows Firewall и возможность подтвердить UAC тем же Windows-пользователем.
+1. Нужны Windows 11 24H2 или новее, Windows PowerShell 5.1 x64/ARM64, работающий Windows Firewall и возможность подтвердить UAC тем же Windows-пользователем. Ограничение версии нужно для удаления неподписанной AppID-политики без перезагрузки: [документация Microsoft](https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/deployment/disable-appcontrol-policies).
 2. Установите v2rayN, настройте нужный сервер, запустите v2rayN с правами администратора и включите TUN. Выберите профиль, который нужно закрепить.
 3. Установите нужные AI-приложения. По умолчанию установщик ожидает все четыре: пакетные Claude Desktop и Codex Desktop, нативный Claude Code и официальный Codex CLI.
 4. Полностью закройте выбранные AI-приложения и их встроенные процессы. Установщик сам их не завершает.

@@ -7,7 +7,7 @@ param([string]$V2rayRoot,[string]$CoreConfigPath,[string]$TunInterfaceAlias,
     [switch]$DisableGpu,[switch]$Repair,[string]$ExpectedOwnerSid)
 $ErrorActionPreference='Stop'
 if($env:OS -ne 'Windows_NT' -or -not [Environment]::Is64BitProcess -or $PSVersionTable.PSEdition -ne 'Desktop') { throw 'Use 64-bit Windows PowerShell 5.1.' }
-if([Environment]::OSVersion.Version.Build -lt 22621 -or -not (Test-Path (Join-Path $env:SystemRoot 'System32\CiTool.exe'))) { throw 'Windows 11 22H2 or later with AppID tagging support is required.' }
+if([Environment]::OSVersion.Version.Build -lt 26100 -or -not (Test-Path (Join-Path $env:SystemRoot 'System32\CiTool.exe'))) { throw 'Windows 11 24H2 or later is required for AppID policy removal without a reboot.' }
 $administrator=[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if(-not $administrator) { throw 'Run install.ps1 from an elevated Windows PowerShell, or use bootstrap.ps1 for UAC elevation.' }
 $moduleRoot=if(Test-Path (Join-Path $PSScriptRoot 'src')) { Join-Path $PSScriptRoot 'src' } else { Join-Path $PSScriptRoot 'runtime' }

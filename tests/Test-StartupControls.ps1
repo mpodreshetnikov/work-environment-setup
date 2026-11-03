@@ -37,6 +37,26 @@ try {
     Set-ItemProperty -LiteralPath $taskPath -Name State -Value 4
     $rejected=$false;try {Disable-WesStartupTasks $records} catch {$rejected=$true}
     if(-not $rejected -or (Get-ItemProperty -LiteralPath $taskPath).State -ne 4) { throw 'A policy change between planning and application was overwritten.' }
+    Set-ItemProperty -LiteralPath $taskPath -Name State -Value 1
+    $legacyPath=$registry+'\OpenAI.ChatGPT-Desktop_2p2nqsd0c76g0\ChatGPT'
+    $unrelatedPath=$registry+'\Unrelated_app\Startup'
+    foreach($path in @($legacyPath,$unrelatedPath)) {
+        $null=New-Item -Path $path -Force
+        $null=New-ItemProperty -LiteralPath $path -Name State -PropertyType DWord -Value 2
+    }
+    $records=@(Get-WesStartupTaskRecords -Applications @($application) -RegistryRoot $registry)
+    if($records.Count -ne 2) { throw 'The separate legacy ChatGPT startup task was missed.' }
+    Disable-WesStartupTasks $records
+    if((Get-ItemProperty -LiteralPath $legacyPath).State -ne 1 -or (Get-ItemProperty -LiteralPath $unrelatedPath).State -ne 2) { throw 'Legacy startup was not disabled independently of unrelated apps.' }
+    Restore-WesStartupTasks $records
+    if((Get-ItemProperty -LiteralPath $legacyPath).State -ne 2) { throw 'Legacy startup state was not restored.' }
+    $application.Scope='ClaudeDesktop'
+    if(@(Get-WesStartupTaskRecords -Applications @($application) -RegistryRoot $registry).Count -ne 1) { throw 'Claude-only installation changed ChatGPT startup.' }
+    $application.Scope='CodexDesktop'
+    Remove-Item -LiteralPath $legacyPath
+    $records=@(Get-WesStartupTaskRecords -Applications @($application) -RegistryRoot $registry)
+    Disable-WesStartupTasks $records
+    if(Test-Path -LiteralPath $legacyPath) { throw 'An absent legacy task was created.' }
     Write-Output 'PASS: packaged startup disable, original/missing state restoration, repeat rollback, preserved user change and administrator policy rejection.'
 } finally {
     if($registry -eq ('HKCU:\Software\WorkEnvironmentSetupTests\'+$id)) { Remove-Item -LiteralPath $registry -Recurse -Force -ErrorAction SilentlyContinue }

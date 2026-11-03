@@ -1,5 +1,7 @@
 # Windows AI applications through a pinned VPN
 
+Диагностика повторного запуска ChatGPT и ошибки sandbox: [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
+
 Скрипты для Claude Desktop, нативного Claude Code, Codex Desktop и Codex CLI на Windows. Выбранный профиль v2rayN копируется в отдельный локальный прокси без прямого резервного выхода. Перед защищённым запуском проверяются профиль, TUN, правила блокировки и реальное HTTPS-соединение.
 
 **Статус: разработка и локальная проверка. Установка целиком на чистом компьютере пока не подтверждена.** Перечень доказанных проверок и открытых задач: [VALIDATION.md](docs/VALIDATION.md).

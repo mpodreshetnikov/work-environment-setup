@@ -3,9 +3,10 @@ param([string]$Root=(Join-Path $env:LOCALAPPDATA 'WorkEnvironmentSetup\AiVpn'))
 $ErrorActionPreference='Stop'
 if($PSVersionTable.PSEdition -ne 'Desktop' -or -not [Environment]::Is64BitProcess) { throw 'Use 64-bit Windows PowerShell 5.1 for verification.' }
 $modules=if(Test-Path (Join-Path $PSScriptRoot 'src')) { Join-Path $PSScriptRoot 'src' } else { Join-Path $Root 'runtime' }
-foreach($module in @('PrivateState','Runtime','NetworkProtection','Discovery','LaunchPlan','StartupControls')) { Import-Module (Join-Path $modules ($module+'.psm1')) -Force }
+foreach($module in @('PrivateState','Runtime','NetworkProtection','Discovery','LaunchPlan','StartupControls','NotificationIntegration')) { Import-Module (Join-Path $modules ($module+'.psm1')) -Force }
 $state=Read-WesInstallationState $Root
 if($state.Status -ne 'Installed') { throw 'Installation is incomplete or removed.' }
+if('CodexDesktop' -in @($state.Applications.Scope)) {$null=Assert-WesNotificationIntegration (Join-Path $Root 'notifications')}
 if(@(Get-WesStartupTaskRecords -Applications @($state.Applications) | Where-Object Changed).Count) { throw 'A packaged AI application startup task is enabled or unconfigured. Run repair.' }
 $ready=Get-WesRuntimeReadiness $Root
 foreach($saved in @($state.Applications)) {

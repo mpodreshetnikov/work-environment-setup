@@ -1,6 +1,7 @@
 Set-StrictMode -Version 2
 Import-Module (Join-Path $PSScriptRoot 'PrivateState.psm1')
 Import-Module (Join-Path $PSScriptRoot 'StartupControls.psm1')
+Import-Module (Join-Path $PSScriptRoot 'NotificationIntegration.psm1')
 
 function Write-WesIntegrationReceipt {
     param([string]$Root,$Receipt)
@@ -18,9 +19,14 @@ function Install-WesSystemIntegration {
     }
     $receipt=[ordered]@{SchemaVersion=1;OwnerSid=$identity.OwnerSid;Status='Installing';TaskName=$identity.V2rayTaskName;TaskCreated=$false;RunRegistryPath=$Locations.Run;RunValues=@();Shortcuts=@();Profiles=@();UserPathBefore=$null;UserPathAfter=$null}
     $receipt.StartupTasks=@(Get-WesStartupTaskRecords -Applications @($State.Applications))
+    $receipt.NotificationRoot=$null
     Write-WesIntegrationReceipt $Root $receipt
     try {
         Disable-WesStartupTasks -Records $receipt.StartupTasks
+        if(@($State.Applications | Where-Object Scope -eq 'CodexDesktop').Count) {
+            $receipt.NotificationRoot=Join-Path $Root 'notifications';Write-WesIntegrationReceipt $Root $receipt
+            $null=Install-WesNotificationIntegration -Root $receipt.NotificationRoot -LaunchScript (Join-Path $Root 'runtime\Desktop.ps1') -MachineRegistration
+        }
         $exe=Join-Path $State.Vpn.V2rayRoot 'v2rayN.exe'
         if(Get-ScheduledTask -TaskName $identity.V2rayTaskName -ErrorAction SilentlyContinue) { throw 'An existing task uses this installation task name.' }
         $action=New-ScheduledTaskAction -Execute $exe -WorkingDirectory $State.Vpn.V2rayRoot
@@ -100,6 +106,7 @@ function Remove-WesSystemIntegration {
     $receipt=Read-WesPrivateJson $path;$identity=Get-WesInstallationIdentity
     if($receipt.OwnerSid -ne $identity.OwnerSid -or $receipt.TaskName -ne $identity.V2rayTaskName) { throw 'System integration journal belongs to another user.' }
     if($receipt.Status -eq 'Removed') { return }
+    if($receipt.PSObject.Properties['NotificationRoot'] -and $receipt.NotificationRoot) {Remove-WesNotificationIntegration $receipt.NotificationRoot}
     if($receipt.PSObject.Properties['StartupTasks']) { Restore-WesStartupTasks -Records @($receipt.StartupTasks) }
     if($receipt.TaskCreated -and (Get-ScheduledTask -TaskName $receipt.TaskName -ErrorAction SilentlyContinue)) { Unregister-ScheduledTask -TaskName $receipt.TaskName -Confirm:$false }
     $run=$receipt.RunRegistryPath

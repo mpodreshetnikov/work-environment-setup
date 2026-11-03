@@ -1,6 +1,7 @@
-param([Parameter(Mandatory=$true)][ValidateSet('ClaudeDesktop','CodexDesktop')][string]$Scope)
+param([Parameter(Mandatory=$true)][ValidateSet('ClaudeDesktop','CodexDesktop')][string]$Scope,[string]$NotificationArguments,[switch]$Quiet)
 $ErrorActionPreference='Stop'
 try {
+    if($NotificationArguments -and ($Scope -ne 'CodexDesktop' -or $NotificationArguments -notmatch '\Atype=action&action=[0-9]{1,3}&tag=[0-9]{1,40}\z')) {throw 'Unsupported notification activation.'}
     # Check.ps1 writes UTF-8 bytes for the native CLI bridge. Run it as a child here.
     $start=[Diagnostics.ProcessStartInfo]::new()
     $start.FileName=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
@@ -24,11 +25,13 @@ try {
     $launch=[Diagnostics.ProcessStartInfo]::new();$launch.FileName=$plan.Command.Executable
     $launch.UseShellExecute=$false;$launch.Arguments='--proxy-server='+$plan.ProxyUrl
     if($plan.DisableGpu) { $launch.Arguments+=' --disable-gpu' }
+    if($NotificationArguments) {$launch.Arguments+=' '+$NotificationArguments}
     foreach($name in @('HTTP_PROXY','HTTPS_PROXY','ALL_PROXY')) { $launch.EnvironmentVariables[$name]=$plan.ProxyUrl }
     $launch.EnvironmentVariables['NO_PROXY']='localhost,127.0.0.1,::1'
     if($Scope -eq 'CodexDesktop') { $launch.EnvironmentVariables['NODE_USE_ENV_PROXY']='1' }
     $child=[Diagnostics.Process]::Start($launch);if($child) { $child.Dispose() }
 } catch {
+    if($Quiet) {[Console]::Error.WriteLine($_.Exception.Message);exit 1}
     Add-Type -AssemblyName System.Windows.Forms
     $null=[Windows.Forms.MessageBox]::Show($_.Exception.Message,'AI VPN launch check',[Windows.Forms.MessageBoxButtons]::OK,[Windows.Forms.MessageBoxIcon]::Error)
     exit 1

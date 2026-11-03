@@ -16,7 +16,10 @@ function Invoke-FixtureCurl {
     try { if(-not $process.WaitForExit(12000)) { $process.Kill();throw 'Fixture curl timed out.' };return $process.ExitCode } finally { $process.Dispose() }
 }
 try {
-    if($Integration) { & (Join-Path $PSScriptRoot 'Test-SystemIntegration.ps1') -Root (Join-Path $rootPath 'integration-fixture') }
+    if($Integration) {
+        & (Join-Path $PSScriptRoot 'Test-SystemIntegration.ps1') -Root (Join-Path $rootPath 'integration-fixture')
+        & (Join-Path $PSScriptRoot 'Test-NotificationIntegration.ps1') -MachineRegistration -FixtureRoot (Join-Path $rootPath 'notification-fixture')
+    }
     Add-Type -Path (Join-Path $PSScriptRoot 'HttpFixture.cs')
     $fixture=[WorkEnvironmentSetup.Tests.HttpFixture]::new()
     $curl=Join-Path $rootPath 'fixture-curl.exe'

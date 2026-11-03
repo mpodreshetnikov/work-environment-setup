@@ -6,14 +6,21 @@ foreach($module in @('PrivateState','NetworkProtection')) { Import-Module (Join-
 $rootPath=Initialize-WesPrivateDirectory $Root
 $report=Join-Path $rootPath 'test-result.private.json'
 $receipt=$null;$fixture=$null;$failure=$null
+$script:CurlObservations=@()
 function Invoke-FixtureCurl {
     param([string]$Executable,[int]$Port,[switch]$DirectHttps)
     $start=[Diagnostics.ProcessStartInfo]::new();$start.FileName=$Executable
-    $start.Arguments='--disable --noproxy * --connect-timeout 2 --max-time 3 --silent --output NUL http://127.0.0.1:'+$Port+'/'
-    if($DirectHttps) { $start.Arguments='--disable --noproxy * --ipv4 --connect-timeout 4 --max-time 8 --silent --output NUL https://www.cloudflare.com/cdn-cgi/trace' }
-    $start.UseShellExecute=$false;$start.CreateNoWindow=$true
+    $start.Arguments='--disable --noproxy * --connect-timeout 2 --max-time 3 --silent --show-error --output NUL http://127.0.0.1:'+$Port+'/'
+    if($DirectHttps) { $start.Arguments='--disable --noproxy * --ipv4 --connect-timeout 4 --max-time 8 --silent --show-error --output NUL https://www.cloudflare.com/cdn-cgi/trace' }
+    $start.UseShellExecute=$false;$start.CreateNoWindow=$true;$start.RedirectStandardError=$true
     $process=[Diagnostics.Process]::Start($start)
-    try { if(-not $process.WaitForExit(12000)) { $process.Kill();throw 'Fixture curl timed out.' };return $process.ExitCode } finally { $process.Dispose() }
+    try {
+        $stderr=$process.StandardError.ReadToEndAsync()
+        if(-not $process.WaitForExit(12000)) { $process.Kill();throw 'Fixture curl timed out.' }
+        $script:CurlObservations+=@(@{Executable=if($Executable -eq (Join-Path $env:SystemRoot 'System32\curl.exe')){'System'}else{'Fixture'};Network=if($DirectHttps){'DirectHttps'}else{'Loopback'};ExitCode=$process.ExitCode;Error=$stderr.GetAwaiter().GetResult()})
+        Write-WesPrivateJson (Join-Path $rootPath 'curl-observations.private.json') $script:CurlObservations
+        return $process.ExitCode
+    } finally { $process.Dispose() }
 }
 try {
     if($Integration) {
@@ -26,13 +33,18 @@ try {
     Copy-Item -LiteralPath (Join-Path $env:SystemRoot 'System32\curl.exe') -Destination $curl
     if((Invoke-FixtureCurl $curl $fixture.Port) -ne 0) { throw 'Fixture was not reachable before protection.' }
     if($DirectHttpsCheck -and (Invoke-FixtureCurl $curl 0 -DirectHttps) -ne 0) { throw 'Direct HTTPS was not reachable before the fixture firewall rule.' }
+    if($DirectHttpsCheck) {
+        $baseline=Invoke-FixtureCurl (Join-Path $env:SystemRoot 'System32\curl.exe') 0 -DirectHttps
+        if($baseline -ne 0) {throw ('Ordinary HTTPS baseline failed before protection (exit '+$baseline+').')}
+    }
     $applications=@([pscustomobject]@{Scope='ClaudeCode';Executables=@($curl);TagPatterns=@($curl)})
     $receipt=Install-WesRoleProtection -Root $rootPath -Role Claude -Applications $applications -DeniedProxyPorts @($fixture.Port)
     $null=Assert-WesNetworkProtection -Root $rootPath -Scope ClaudeCode
     if((Invoke-FixtureCurl $curl $fixture.Port) -ne 7) { throw 'Persistent alternate-proxy block did not reject the isolated connection.' }
     if($DirectHttpsCheck) {
         if((Invoke-FixtureCurl $curl 0 -DirectHttps) -ne 7) { throw 'Non-loopback IPv4 HTTPS was not rejected by the fixture firewall rule.' }
-        if((Invoke-FixtureCurl (Join-Path $env:SystemRoot 'System32\curl.exe') 0 -DirectHttps) -ne 0) { throw 'The fixture firewall rule restricted an unrelated system curl.' }
+        $control=Invoke-FixtureCurl (Join-Path $env:SystemRoot 'System32\curl.exe') 0 -DirectHttps
+        if($control -ne 0) { throw ('An unrelated system curl failed while fixture protection was active (exit '+$control+').') }
     }
     # A normal system tool remains unrestricted, although the fixture copy is protected.
     if((Invoke-FixtureCurl (Join-Path $env:SystemRoot 'System32\curl.exe') $fixture.Port) -ne 0) { throw 'An unrelated executable inherited the fixture restriction.' }

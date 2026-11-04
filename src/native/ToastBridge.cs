@@ -58,7 +58,7 @@ namespace WorkEnvironmentSetup.Notifications {
         }
         public static void Dispatch(Activation activation) {
             if(settings==null) settings=ReadSettings();
-            if(activation==null || Array.IndexOf(settings.AppIds,activation.AppId)<0 || activation.Arguments==null || !Regex.IsMatch(activation.Arguments,@"\Atype=action&action=[0-9]{1,3}&tag=[0-9]{1,40}\z")) throw new InvalidDataException("Unknown notification activation.");
+            if(activation==null || Array.IndexOf(settings.AppIds,activation.AppId)<0 || activation.Arguments==null || !Regex.IsMatch(activation.Arguments,@"\Atype=(?:action&action=[0-9]{1,3}|click)&tag=[0-9]{1,40}\z")) throw new InvalidDataException("Unknown notification activation.");
             string encoded=Convert.ToBase64String(Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(activation)));
             var start=new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),"WindowsPowerShell\\v1.0\\powershell.exe"));
             start.UseShellExecute=false; start.CreateNoWindow=true;

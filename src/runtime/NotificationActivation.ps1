@@ -9,7 +9,7 @@ try {
     $null=Assert-WesNotificationIntegration $PSScriptRoot -ActivationContext
     $config=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'notification-config.private.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     $payload=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($ActivationBase64)) | ConvertFrom-Json
-    if($payload.AppId -notin @($config.AppIds) -or [string]$payload.Arguments -notmatch '\Atype=action&action=[0-9]{1,3}&tag=[0-9]{1,40}\z') { throw 'Unsupported notification activation. Open the VPN shortcut instead.' }
+    if($payload.AppId -notin @($config.AppIds) -or [string]$payload.Arguments -notmatch '\Atype=(?:action&action=[0-9]{1,3}|click)&tag=[0-9]{1,40}\z') { throw 'Unsupported notification activation. Open the VPN shortcut instead.' }
     if($config.Kind -eq 'Portable') {
         $launch=[Diagnostics.ProcessStartInfo]::new()
         $launch.FileName=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'

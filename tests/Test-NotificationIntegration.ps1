@@ -22,24 +22,28 @@ try {
     $merged.Dispose()
     $folder=(New-Object -ComObject Shell.Application).NameSpace($root)
     if([string]$folder.ParseName('Fixture.lnk').ExtendedProperty('System.AppUserModel.ToastActivatorCLSID') -ne $result.Clsid) {throw 'Shortcut activator was not updated.'}
-    $activation=@{AppId=$appId;Arguments='type=action&action=1&tag=123456789'}|ConvertTo-Json -Compress
-    $encoded=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($activation))
     if($WarmServer) {
-        $server=Start-Process -FilePath $result.Bridge -ArgumentList '-Embedding' -PassThru
+        $server=Start-Process -FilePath $result.Bridge -ArgumentList '-Embedding' -WindowStyle Hidden -PassThru
         $deadline=[DateTime]::UtcNow.AddSeconds(10)
         while(-not (Test-Path -LiteralPath (Join-Path $notificationRoot 'server-ready.private.json')) -and [DateTime]::UtcNow -lt $deadline) {Start-Sleep -Milliseconds 100}
     }
     $client=Join-Path $notificationRoot 'ToastProbe.exe';Copy-Item -LiteralPath $result.Bridge -Destination $client
-    $process=Start-Process -FilePath $client -ArgumentList @('--probe-com',$encoded) -PassThru
-    if(-not $process.WaitForExit(20000) -or $process.ExitCode -ne 0) {throw 'Real COM activation failed.'}
-    $deadline=[DateTime]::UtcNow.AddSeconds(15);$observed=Join-Path $root 'observed.json'
-    while(-not (Test-Path -LiteralPath $observed) -and [DateTime]::UtcNow -lt $deadline) {Start-Sleep -Milliseconds 100}
-    if(-not (Test-Path -LiteralPath $observed)) {throw 'COM activation did not reach the protected launcher.'}
-    $value=Get-Content -LiteralPath $observed -Raw|ConvertFrom-Json
-    if($value.Scope -ne 'CodexDesktop' -or $value.Arguments -ne 'type=action&action=1&tag=123456789') {throw 'Notification payload was changed.'}
-    foreach($bad in @(@{AppId='wrong';Arguments='type=action&action=1&tag=1'},@{AppId=$appId;Arguments='type=action&action=1&tag=1 --proxy-server=other'})) {
+    $observed=Join-Path $root 'observed.json'
+    foreach($arguments in @('type=action&action=1&tag=123456789','type=click&tag=13134524677102617739')) {
+        if(Test-Path -LiteralPath $observed) {Remove-Item -LiteralPath $observed}
+        $activation=@{AppId=$appId;Arguments=$arguments}|ConvertTo-Json -Compress
+        $encoded=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($activation))
+        $process=Start-Process -FilePath $client -ArgumentList @('--probe-com',$encoded) -WindowStyle Hidden -PassThru
+        if(-not $process.WaitForExit(20000) -or $process.ExitCode -ne 0) {throw 'Real COM activation failed.'}
+        $deadline=[DateTime]::UtcNow.AddSeconds(15)
+        while(-not (Test-Path -LiteralPath $observed) -and [DateTime]::UtcNow -lt $deadline) {Start-Sleep -Milliseconds 100}
+        if(-not (Test-Path -LiteralPath $observed)) {throw 'COM activation did not reach the protected launcher.'}
+        $value=Get-Content -LiteralPath $observed -Raw|ConvertFrom-Json
+        if($value.Scope -ne 'CodexDesktop' -or $value.Arguments -ne $arguments) {throw 'Notification payload was changed.'}
+    }
+    foreach($bad in @(@{AppId='wrong';Arguments='type=action&action=1&tag=1'},@{AppId=$appId;Arguments='type=action&action=1&tag=1 --proxy-server=other'},@{AppId=$appId;Arguments='type=click&tag=1 --proxy-server=other'},@{AppId=$appId;Arguments='type=click&tag=1&action=1'},@{AppId=$appId;Arguments='type=click&tag='},@{AppId=$appId;Arguments='type=other&tag=1'})) {
         $encoded=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($bad|ConvertTo-Json -Compress)))
-        $process=Start-Process -FilePath $result.Bridge -ArgumentList @('--dispatch-base64',$encoded) -PassThru
+        $process=Start-Process -FilePath $result.Bridge -ArgumentList @('--dispatch-base64',$encoded) -WindowStyle Hidden -PassThru
         if(-not $process.WaitForExit(10000) -or $process.ExitCode -eq 0) {throw 'An unknown app or injected launch argument was accepted.'}
     }
     $route=@($receipt.Registry | Where-Object Name -eq 'CustomActivator')[0]

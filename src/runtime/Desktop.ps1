@@ -1,7 +1,7 @@
 param([Parameter(Mandatory=$true)][ValidateSet('ClaudeDesktop','CodexDesktop')][string]$Scope,[string]$NotificationArguments,[switch]$Quiet)
 $ErrorActionPreference='Stop'
 try {
-    if($NotificationArguments -and ($Scope -ne 'CodexDesktop' -or $NotificationArguments -notmatch '\Atype=action&action=[0-9]{1,3}&tag=[0-9]{1,40}\z')) {throw 'Unsupported notification activation.'}
+    if($NotificationArguments -and ($Scope -ne 'CodexDesktop' -or $NotificationArguments -notmatch '\Atype=(?:action&action=[0-9]{1,3}|click)&tag=[0-9]{1,40}\z')) {throw 'Unsupported notification activation.'}
     # Check.ps1 writes UTF-8 bytes for the native CLI bridge. Run it as a child here.
     $start=[Diagnostics.ProcessStartInfo]::new()
     $start.FileName=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
